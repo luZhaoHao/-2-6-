@@ -1,0 +1,190 @@
+from sklearn.datasets import load_iris
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+import matplotlib.pyplot as plt
+import numpy as np
+
+#加载数据集
+iris=load_iris()
+
+#创建x和y变量，存储特征和响应列
+iris_X,iris_y=iris.data,iris.target
+
+label_dict={i:k for i,k in enumerate(iris.target_names)}
+def plot(X,y,title,x_label,y_label):
+    ax=plt.subplot(111)
+    for label,marker,color in zip(range(3),('^','S','O'),('blue','red','green')):
+        plt.scatter(x=X[:,0].real[y == label],
+                    y=X[:,1].real[ y== label],
+                    color=color,
+                    alpha=0.5,
+                    label=label_dict[label])
+        plt.xlabel(x_label)
+        plt.ylabel(y_label)
+
+        leg=plt.legend(loc='upper right',fancybox=True)
+        leg.get_frame().set_alpha(0.5)
+        plt.title(title)
+
+
+
+#先实例化
+pca=PCA(n_components=2)
+
+#在数据上用PCA
+pca.fit(iris_X)
+
+#查看PC对象属性
+#print(pca.components_)
+
+#将数据投影到新二维平面上
+#print(pca.transform(iris_X)[:5,])
+
+'''
+#绘制原始数据和投影后的数据
+plot(iris_X,iris_y,"Original Iris Data","sepal length (cm)","sepal width (cm)")
+plt.show()
+plot(pca.transform(iris_X),iris_y,"Iris: Data projected onto first two PCA components","PCA1","PCA2")
+plt.show()
+'''
+
+#每个主成分解释的方差量
+#print(pca.explained_variance_ratio_)
+
+#PCA消除相关性
+#原始数据的相关矩阵
+#print(np.corrcoef(iris_X.T))
+
+#对角线上的相关系数
+#print(np.corrcoef(iris_X.T)[[0,0,0,1,1],[1,2,3,2,3]])
+
+#原始数据集平均相关性
+#print(np.corrcoef(iris_X.T)[[0,0,0,1,1],[1,2,3,2,3]].mean())
+
+#提取所有主成分
+full_pca=PCA(n_components=4)
+
+#PCA拟合数据集
+full_pca.fit(iris_X)
+
+#用老办法计算新列平均相关系数
+pca_iris=full_pca.transform(iris_X)
+
+#PCA后的平均相关系数
+#print(np.corrcoef(pca_iris.T)[[0,0,0,1,1],[1,2,3,2,3]].mean())
+
+#中心化数据
+X_centered=StandardScaler(with_std=False).fit_transform(iris_X)
+
+#print(X_centered[:5,])
+
+#绘制中心化之后的数据
+#plot(X_centered,iris_y,"Original Iris Data","sepal length (cm)","sepal width (cm)")
+#plt.show()
+
+#拟合数据集
+pca.fit(X_centered)
+
+#查看主成分
+#print(pca.components_)
+
+#PCA自动进行中心化，投影一样
+#print(pca.transform(X_centered)[:5,])
+
+#PCA中心化后的数据图，和之前一样
+#plot(pca.transform(X_centered),iris_y,"Iris: Data projected onto first two PCA components","PCA1","PCA2")
+#plt.show()
+
+#每个主成分解释方差百分比
+#print(pca.explained_variance_ratio_)
+
+#z分数缩放
+X_scaled=StandardScaler().fit_transform(iris_X)
+
+#绘图
+#plot(X_scaled,iris_y,"Original Iris Data","sepal length (cm)","sepal width (cm)")
+#plt.show()
+
+#二维PCA拟合
+pca.fit(X_scaled)
+
+#与中心化后的主成分不同
+#print(pca.components_)
+
+#缩放不同，投影不同
+#print(pca.transform(X_scaled)[:5,])
+
+#每个主成分解释的百分比
+#print(pca.explained_variance_ratio_)
+
+
+#绘制缩放后的数据PCA
+#plot(pca.transform(X_scaled),iris_y,"Iris: Data projected onto first two PCA components","PCA1","PCA2")
+#plt.show()
+
+#解释主成分
+# print(pca.components_)
+
+#原始矩阵（150x4）和转置矩阵（4x2）相乘，得到投影数据（150x2）
+#print(np.dot(X_scaled,pca.components_.T)[:5,])
+
+#提取缩放数据的第一行
+first_scaled_flower=X_scaled[0]
+
+#提取两个主成分
+first_Pc=pca.components_[0]
+second_Pc=pca.components_[1]
+
+#print(frist_scaled_flower)
+
+#就是第一行和主成分点积
+#print(np.dot(first_scaled_flower,first_Pc),np.dot(first_scaled_flower,second_Pc))
+
+#PCA的转换方法
+#print(pca.transform(X_scaled)[:5,])
+
+#删去后两个特征
+iris_2_dim=iris_X[:,2:4]
+
+#中心化
+iris_2_dim=iris_2_dim-iris_2_dim.mean(axis=0)
+
+#画图
+#plot(iris_2_dim,iris_y,"Original Iris Data","sepal length (cm)","sepal width (cm)")
+#plt.show()
+
+#实例保留两个主成分的PCA
+twodim_pca=PCA(n_components=2)
+
+#拟合并转换成截断的数据
+iris_2_dim_transformed=twodim_pca.fit_transform(iris_2_dim)
+
+#plot(iris_2_dim_transformed,iris_y,"Iris: Data projected onto first two PCA components","PCA1","PCA2")
+#plt.show()
+
+#下面的代码展示原始数据和用PCA投影后的数据
+#但是在图上，每个主成分都按数据的向量处理
+#长箭头是第一个主成分，短箭头是第二个主成分
+def draw_vector(v0, v1, ax):
+    arrowprops=dict(arrowstyle='->',linewidth=2,  shrinkA=0, shrinkB=0)
+    ax.annotate('', v1, v0, arrowprops=arrowprops)
+
+fig, ax = plt.subplots(2, 1, figsize=(10, 10))
+fig.subplots_adjust(left=0.0625, right=0.95, wspace=0.1)
+
+# 画图
+ax[0].scatter(iris_2_dim[:, 0], iris_2_dim[:, 1], alpha=0.2)
+for length, vector in zip(twodim_pca.explained_variance_, twodim_pca.components_):
+    v = vector * np.sqrt(length) # 拉长向量，和explained_variance对应
+    draw_vector(twodim_pca.mean_,  twodim_pca.mean_ + v, ax=ax[0])
+
+ax[0].set(xlabel='x', ylabel='y', title='Original Iris Dataset',  xlim=(-3, 3), ylim=(-2, 2))
+
+ax[1].scatter(iris_2_dim_transformed[:, 0], iris_2_dim_transformed[:, 1], alpha=0.2)
+for length, vector in zip(twodim_pca.explained_variance_, twodim_pca.components_):
+    transformed_component = twodim_pca.transform([vector])[0] #转换到新的坐标系
+    v = transformed_component * np.sqrt(length) # 拉长向量，和explained_variance对应
+    draw_vector(iris_2_dim_transformed.mean(axis=0),  iris_2_dim_transformed.mean(axis=0) + v, ax=ax[1])
+
+ax[1].set(xlabel='component 1', ylabel='component 2',  title='Projected Data',  xlim=(-3, 3), ylim=(-1, 1))
+plt.show()
