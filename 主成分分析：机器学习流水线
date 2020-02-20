@@ -1,0 +1,95 @@
+from sklearn.datasets import load_iris
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import GridSearchCV
+from sklearn.feature_selection import SelectKBest
+import matplotlib.pyplot as plt
+import numpy as np
+
+def get_best_model_and_accuracy(model,params,X,y):
+    grid=GridSearchCV(model,#要搜索的模型
+                      params,#要尝试的参数
+                      error_score=0.)#如果报错，结果是0
+    grid.fit(X,y)#拟合模型和参数
+    #经典的性能指标
+    print("Best Accuracy:{}".format(grid.best_score_))
+    #得到最佳准确率的最佳参数
+    print("Best Parameters:{}".format(grid.best_params_))
+    #拟合的平均时间(S)
+    print("Average Time to Fit (s):{}".format(round(grid.cv_results_['mean_fit_time'].mean(),3)))
+    #预测的平均时间（秒）
+    #从该指标可以看出模型在真实世界的性能
+    print("Average Time to Score (s):{}".format(round(grid.cv_results_['mean_score_time'].mean(),3)))
+
+
+#加载数据集
+iris=load_iris()
+
+#创建x和y变量，存储特征和响应列
+iris_X,iris_y=iris.data,iris.target
+
+#创建有一个主成分的PCA
+single_pca=PCA(n_components=1)
+
+#创建有一个判别式的LDA模块
+single_lda=LinearDiscriminantAnalysis(n_components=1)
+
+#实例化KNN模型
+knn=KNeighborsClassifier()
+
+#不用任何特征转化，用KNN进行验证
+knn_ayerage=cross_val_score(knn,iris_X,iris_y).mean()
+
+#print(knn_ayerage)
+
+'''
+#只用LDA
+lda_pipeline=Pipeline([('lda',single_lda),('knn',knn)])
+
+lda_average=cross_val_score(lda_pipeline,iris_X,iris_y).mean()
+
+#print(lda_average)
+
+#创建执行PCA的流水线
+pca_pipeline=Pipeline([('pca',single_pca),('knn',knn)])
+
+pca_average=cross_val_score(pca_pipeline,iris_X,iris_y).mean()
+
+print(pca_average)
+'''
+
+'''
+#2个判别式的LDA模块
+lda_pipeline=Pipeline([('lda',LinearDiscriminantAnalysis(n_components=2)),('knn',knn)])
+
+lda_average=cross_val_score(lda_pipeline,iris_X,iris_y).mean()
+
+print(lda_average)
+'''
+'''
+#尝试所有的K值，但是不包括全部保留
+for k in [1,2,3]:
+    #构建流水线
+    select_pipline=Pipeline([('select',SelectKBest(k=k)),('knn',knn)])
+    #交叉验证流水线
+    select_average=cross_val_score(select_pipline,iris_X,iris_y).mean()
+    print(k,"best feature has accuracy",select_average)
+'''
+iris_params={'preprocessing__scale__with_std':[True,False],
+             'preprocessing__scale__with_mean':[True,False],
+             'preprocessing__pca__n_components':[1,2,3,4],
+             'preprocessing__lda__n_components':[1,2],
+             'clf__n_neighbors':range(1,9)}
+#更大的流水线
+preprocessing=Pipeline([('scale',StandardScaler()),
+                        ('pca',PCA()),
+                        ('lda',LinearDiscriminantAnalysis())])
+
+iris_pipeline=Pipeline(steps=[('preprocessing',preprocessing),
+                      ('clf',KNeighborsClassifier())])
+
+get_best_model_and_accuracy(iris_pipeline,iris_params,iris_X,iris_y)
