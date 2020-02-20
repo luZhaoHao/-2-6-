@@ -1,0 +1,82 @@
+'''
+PCA步骤
+1.构建数据集的协方差矩阵
+2.计算协方差矩阵的特征值
+3.保留前面k个特征值（特征值降序排列）
+4.保留特征值对应的特征向量转化为新的特征点
+'''
+
+from sklearn.datasets import load_iris
+import matplotlib.pyplot as plt
+import numpy as np
+
+#加载数据集
+iris=load_iris()
+
+#创建x和y变量，存储特征和响应列
+iris_X,iris_y=iris.data,iris.target
+
+#要预测的花的名称
+#print(iris.target_names)
+
+#查看其中的一两个特征
+label_dict={i:k for i,k in enumerate(iris.target_names)}
+'''
+#整个数据集的图像
+def plot(X,y,title,x_label,y_label):
+    ax=plt.subplot(111)
+    for label,marker,color in zip(range(3),('^','S','O'),('blue','red','green')):
+        plt.scatter(x=X[:,0].real[y == label],
+                    y=X[:,1].real[ y== label],
+                    color=color,
+                    alpha=0.5,
+                    label=label_dict[label])
+        plt.xlabel(x_label)
+        plt.ylabel(y_label)
+
+        leg=plt.legend(loc='upper right',fancybox=True)
+        leg.get_frame().set_alpha(0.5)
+        plt.title(title)
+
+plot(iris_X,iris_y,"Original Iris Data","sepal length (cm)","sepal width (cm)")
+plt.show()
+'''
+
+#计算均值向量
+mean_vector=iris_X.mean(axis=0)
+#print(mean_vector)
+
+#计算协方差矩阵
+cov_mat=np.cov((iris_X).T)
+#print(cov_mat)
+
+#计算数据集特征向量和特征值
+eig_val_cov,eig_vec_cov=np.linalg.eig(cov_mat)
+'''
+#按降序打印特征向量和相对应的特征值
+for i in range(len(eig_val_cov)):
+    eigvec_cov=eig_vec_cov[:,i]
+    print('Eigenvector {}: \n'.format(i+1,eig_vec_cov))
+    print('Eigenvalue {} from covariance matrix: {}'.format(i+1,eig_val_cov[i]))
+    print(30*'-')
+'''
+explained_variance_ratio=eig_val_cov/eig_val_cov.sum()
+#print(explained_variance_ratio)
+'''
+#碎石图
+plt.plot(np.cumsum(explained_variance_ratio))
+plt.title('Scree plot')
+plt.xlabel('Principal Component (k)')
+plt.ylabel('% of Variance Explained <= k')
+plt.show()
+'''
+#保存两个特征向量
+top_2_eigenvectors=eig_vec_cov[:,:2].T
+
+#转置，每一行表示一个主成分
+#print(top_2_eigenvectors)
+
+#将数据集从150x4转化为150x2
+#看、将数据矩阵和特征向量相乘
+
+#print(np.dot(iris_X-mean_vector,top_2_eigenvectors.T)[:5,])
