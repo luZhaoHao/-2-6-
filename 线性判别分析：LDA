@@ -1,0 +1,165 @@
+from sklearn.datasets import load_iris
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+import matplotlib.pyplot as plt
+import numpy as np
+
+#加载数据集
+iris=load_iris()
+
+#创建x和y变量，存储特征和响应列
+iris_X,iris_y=iris.data,iris.target
+
+label_dict={i:k for i,k in enumerate(iris.target_names)}
+def plot(X,y,title,x_label,y_label):
+    ax=plt.subplot(111)
+    for label,marker,color in zip(range(3),('^','S','O'),('blue','red','green')):
+        plt.scatter(x=X[:,0].real[y == label],
+                    y=X[:,1].real[ y== label],
+                    color=color,
+                    alpha=0.5,
+                    label=label_dict[label])
+        plt.xlabel(x_label)
+        plt.ylabel(y_label)
+
+        leg=plt.legend(loc='upper right',fancybox=True)
+        leg.get_frame().set_alpha(0.5)
+        plt.title(title)
+
+#计算每个类别的均值向量
+#将鸢尾花数据集分为3类
+#每块代表一种鸢尾花，计算均值
+mean_vectors=[]
+for cl in [0,1,2]:
+    class_mean_vector=np.mean(iris_X[iris_y==cl],axis=0)
+    mean_vectors.append(class_mean_vector)
+   # print(label_dict[cl],class_mean_vector)
+
+#类内散布矩阵
+S_W=np.zeros((4,4))
+#对于每种鸢尾花
+for cl,mv in zip([0,1,2],mean_vectors):
+    #从0开始，每个类别的散布矩阵
+    class_sc_mat=np.zeros((4,4))
+    #对于每个样本
+    for row in iris_X[iris_y==cl]:
+        #列向量
+        row,mv=row.reshape(4,1),mv.reshape(4,1)
+        #4X4的矩阵
+        class_sc_mat +=(row-mv).dot((row-mv).T)
+    #散布矩阵的和
+    S_W +=class_sc_mat
+
+#print(S_W)
+
+#类间散步矩阵
+
+#数据集的均值
+overall_mean=np.mean(iris_X,axis=0).reshape(4,1)
+
+#会变成散布矩阵
+S_B=np.zeros((4,4))
+for i,mean_vec in enumerate(mean_vectors):
+    #每种花的数量
+    n=iris_X[iris_y==i,:].shape[0]
+    #每种花的列向量
+    mean_vec=mean_vec.reshape(4,1)
+    S_B +=n*(mean_vec-overall_mean).dot((mean_vec-overall_mean).T)
+
+#print(S_B)
+
+#计算矩阵的特征值和特征向量
+eig_vals,eig_vecs=np.linalg.eig(np.dot(np.linalg.inv(S_W),S_B))
+eig_vecs=eig_vecs.real
+eig_vals=eig_vals.real
+
+for i in range(len(eig_vals)):
+    eigvec_sc=eig_vecs[:,i]
+    #print('Eigenvector {}:{}'.format(i+1,eigvec_sc))
+    #print('Eigenvalue{:}: {}'.format(i+1,eig_vals[i]))
+
+#保留最好的两个线性判别式
+linear_discriminats=eig_vecs.T[:2]
+
+#print(linear_discriminats)
+
+#解释总方差的比例
+#print(eig_vals/eig_vals.sum())
+
+#LDA投影数据
+lda_iris_projection=np.dot(iris_X,linear_discriminats.T)
+#print(lda_iris_projection[:5,])
+
+#画图看看
+#plot(lda_iris_projection,iris_y,"LDA Projection","LDA1","LDA2")
+#plt.show()
+
+#实例化LDA模块
+lda=LinearDiscriminantAnalysis(n_components=2)
+
+#拟合并转换为鸢尾花数据
+X_lda_iris=lda.fit_transform(iris_X,iris_y)
+
+#绘制投影数据
+#plot(X_lda_iris,iris_y,"LDA Projection","LDA1","LDA2")
+#plt.show()
+
+#和pca。components_基本一样，但是转置了
+#print(lda.scalings_)
+
+#和手动计算一样
+#print(lda.explained_variance_ratio_)
+
+#用LDA拟合数据
+X_scaled=StandardScaler().fit_transform(iris_X)
+X_lda_iris=lda.fit_transform(X_scaled,iris_y)
+#print(lda.scalings_)
+
+#删去后两个特征
+iris_2_dim=iris_X[:,2:4]
+
+#中心化
+iris_2_dim=iris_2_dim-iris_2_dim.mean(axis=0)
+
+#在截断的数据集上拟合
+iris_2_dim_transformed_lda=lda.fit_transform(iris_2_dim,iris_y)
+
+#看数据的前5行
+#print(iris_2_dim_transformed_lda[:5,])
+
+#保存转置
+components=lda.scalings_.T
+#print(components)
+
+#和transform一样
+#print(np.dot(iris_2_dim,components.T)[:5,])
+
+#原始特征的相关性很大
+#print(np.corrcoef(iris_2_dim.T))
+
+#LDA的相关性极小，和PCA一样
+#print(np.corrcoef(iris_2_dim_transformed_lda.T))
+
+#下面代码展示原始数据和用LDA投影后的数据
+#但是在图上，每个缩放都按数据的向量处理
+#长箭头是第一个向量，短箭头是第二个
+def draw_vector(v0, v1, ax):
+    arrowprops=dict(arrowstyle='->',  linewidth=2,  shrinkA=0, shrinkB=0)
+    ax.annotate('', v1, v0, arrowprops=arrowprops)
+fig, ax = plt.subplots(2, 1, figsize=(10, 10))
+fig.subplots_adjust(left=0.0625, right=0.95, wspace=0.1)    # 绘图
+ax[0].scatter(iris_2_dim[:, 0], iris_2_dim[:, 1], alpha=0.2)
+for length, vector in zip(lda.explained_variance_ratio_, components):
+    v = vector * .5
+    draw_vector(lda.xbar_, lda.xbar_ + v, ax=ax[0]) # lda.xbar_等于pca.mean_
+ax[0].axis('equal')
+ax[0].set(xlabel='x', ylabel='y', title='Original Iris Dataset',  xlim=(-3, 3), ylim=(-3, 3))
+ax[1].scatter(iris_2_dim_transformed_lda[:, 0], iris_2_dim_transformed_lda[:, 1], alpha=0.2)
+for length, vector in zip(lda.explained_variance_ratio_, components):
+    transformed_component = lda.transform([vector])[0]
+    v = transformed_component * .1
+    draw_vector(iris_2_dim_transformed_lda.mean(axis=0), iris_2_dim_transformed_lda.mean(axis=0) + v, ax=ax[1])
+ax[1].axis('equal')
+ax[1].set(xlabel='lda component 1', ylabel='lda component 2',  title='Linear Discriminant Analysis Projected Data',  xlim=(-10, 10), ylim=(-3, 3))
+plt.show()
