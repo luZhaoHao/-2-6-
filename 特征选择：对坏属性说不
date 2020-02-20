@@ -1,0 +1,211 @@
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+import matplotlib.style as style
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import GridSearchCV
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.base import TransformerMixin,BaseEstimator
+from sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import f_classif
+from copy import deepcopy
+
+class CustomCorrelationChooser(TransformerMixin,BaseEstimator):
+    def __init__(self,response,cols_to_keep=[],threshold=None):
+        #保存响应变量
+        self.respones=response
+        #保存阈值
+        self.threshold=threshold
+        #初始化一个变量，存放要保留的特征名
+        self.cols_to_keep=cols_to_keep
+
+    def transform(self,X):
+        #转换会选择合适的列
+        return X['self.cols_to_keep']
+
+    def fit(self,X,*_):
+        #创建新的DataFrame,存放特征和响应
+        df=pd.concat([X, self.respones], axis=1)
+        #保存高于阈值的列名称
+        self.cols_to_keep=df.columns[df.corr()[df.columns[-1]].abs()>self.threshold]
+        #只保留X列，删掉响应变量
+        self.cols_to_keep=[c for c in self.cols_to_keep if c in X.columns]
+        return self
+
+def get_best_model_and_accuracy(model,params,X,y):
+    grid=GridSearchCV(model,#要搜索的模型
+                      params,#要尝试的参数
+                      error_score=0.)#如果报错，结果是0
+    grid.fit(X,y)#拟合模型和参数
+    #经典的性能指标
+    print("Best Accuracy:{}".format(grid.best_score_))
+    #得到最佳准确率的最佳参数
+    print("Best Parameters:{}".format(grid.best_params_))
+    #拟合的平均时间(S)
+    print("Average Time to Fit (s):{}".format(round(grid.cv_results_['mean_fit_time'].mean(),3)))
+    #预测的平均时间（秒）
+    #从该指标可以看出模型在真实世界的性能
+    print("Average Time to Score (s):{}".format(round(grid.cv_results_['mean_score_time'].mean(),3)))
+
+#用的时候注意变量名需要改变，改成X1 X2。。。Y
+#用随机数种子保证随机数永远一致
+np.random.seed(123)
+
+#导入数据集
+credit_card_default=pd.read_csv('default of credit card clients.csv')
+
+#探索性数据分析
+#print(credit_card_default.shape)
+
+#描述性统计
+#print(credit_card_default.describe().T)
+
+#检查缺失值
+#print(credit_card_default.isnull().sum())
+
+#特征矩阵
+X=credit_card_default.drop('default payment next month',axis=1)
+
+#响应变量
+y=credit_card_default['default payment next month']
+
+#取空准确率
+#print(y.value_counts(normalize=True))
+
+#为网络搜索设置变量
+#先设置机器学习模型参数
+
+lr_params={'C':[1e-1,1e0,1e1,1e2],'penalty':['l1','l2']}
+
+#KNN
+knn_params={'n_neighbors':[1,3,5,7]}
+
+#决策树
+tree_params={'max_depth':[None,1,3,5,7]}
+
+#随机森林
+forest_params={'n_estimators':[10,50,100],'max_depth':[None,1,3,5,7]}
+
+#实例化机器学习模型
+lr=LogisticRegression()
+knn=KNeighborsClassifier()
+d_tree=DecisionTreeClassifier()
+forest=RandomForestClassifier()
+
+#get_best_model_and_accuracy(lr,lr_params,X,y)
+#get_best_model_and_accuracy(knn,knn_params,X,y)
+
+'''
+#为流水线设置knn数据集
+knn_pipe_params={'classifier__{}'.format(k):v for k,v in knn_params.items()}
+
+#KNN标准化参数
+knn_pipe=Pipeline([('scale',StandardScaler()),('classifier',knn)])
+
+get_best_model_and_accuracy(knn_pipe,knn_pipe_params,X,y)
+'''
+
+#决策树
+#get_best_model_and_accuracy(d_tree,tree_params,X,y)
+
+#随机森林
+#get_best_model_and_accuracy(forest,forest_params,X,y)
+
+#皮尔逊指数
+#print(credit_card_default.corr())
+
+#用Seaborn生成热图
+#style.use('fivethirtyeight')
+#sns.heatmap(credit_card_default.corr())
+#plt.show()
+
+#只有特征响应和相关性。这样能看出那些变量相关性更大
+#print(credit_card_default.corr()['default payment next month'])
+
+#我们要找相关系数接近-1或1的特征，这些特征对预测有帮助
+#print(credit_card_default.corr()['default payment next month'].abs()>0.2)
+
+'''
+#存储特征
+highly_correlated_features=credit_card_default.columns[credit_card_default.corr()['default payment next month'].abs()>0.2]
+#print(highly_correlated_features)
+
+highly_correlated_features=highly_correlated_features.drop('default payment next month')
+#print(highly_correlated_features)
+
+#只有5个原始特征，用于响应变量。
+X_subsetted=X[highly_correlated_features]
+
+get_best_model_and_accuracy(d_tree,tree_params,X_subsetted,y)
+#略差一点准确率，但是拟合块了20倍
+'''
+
+#实例化特征选择器
+ccc=CustomCorrelationChooser(threshold=0.2,response=y)
+ccc.fit(X)
+#print(ccc.cols_to_keep)
+
+print(ccc.transform(X).head())
+
+
+#使用响应变量初始化特征选择器
+#ccc=CustomCorrelationChooser(threshold=0.1,response=y)
+#print(ccc)
+'''
+#创建流水线，包括选择器
+ccc_pipe=Pipeline([('correlation_select',ccc),('classifier',d_tree)])
+tree_pipe_params={'classifier__max_depth':[None,1,3,5,7,9,11,13,15,17,19,21]}
+
+#复制决策树的参数
+ccc_pipe_params=deepcopy(tree_pipe_params)
+
+#更新决策树的参数选择
+ccc_pipe_params.update({'correlation_select__threshold':[0,.1,.2,.3]})
+
+#print(ccc_pipe_params)
+
+get_best_model_and_accuracy(ccc_pipe,ccc_pipe_params,X,y)
+
+#ccc=CustomCorrelationChooser(threshold=0.1,response=y)
+#print(ccc.fit(X))
+'''
+'''
+#anova测试
+#只保留最佳的5个特征
+k_best=SelectKBest(f_classif,k=5)
+
+#选择最佳特征后的矩阵
+k_best.fit_transform(X,y)
+
+#取列的p值
+k_best.pvalues_
+
+#特征和p值组成DataFrame
+p_values=pd.DataFrame({'columns':X.columns,'p_value':k_best.pvalues_}).sort_values('p_value')
+
+#查看
+#print(p_values.head())
+
+#低p值，满足0.05条件的p值
+#print(p_values[p_values['p_value']<0.05])
+
+#大于0.05的p值
+#print(p_values['p_value']>=0.05)
+
+#用SelectKBest建立流水线
+select_k_pipe=Pipeline([('k_best',k_best),('classifier',d_tree)])
+
+select_k_best_pipe_params=deepcopy(tree_params)
+
+#all没有作用
+select_k_best_pipe_params.update({'k_best__k':list(range(1,23))+['all']})
+
+#print(select_k_best_pipe_params)
+
+get_best_model_and_accuracy(select_k_pipe,select_k_best_pipe_params,X,y)
+'''
